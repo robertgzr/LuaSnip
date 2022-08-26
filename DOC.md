@@ -1078,8 +1078,16 @@ extras7: ![extras7](https://user-images.githubusercontent.com/25300418/184359221
 
 ## FMT
 
-`require("luasnip.extras.fmt").fmt` can be used to create snippets in a more
-readable way.
+Authoring snippets can be quite clunky, especially since every second node is
+probably a `textNode`, inserting a small number of characters between two more
+complicated nodes.  
+`fmt` can be used to define snippets in a much more readable way. This is
+achieved by borrowing (as the name implies) from `format`-functionality (our
+syntax is very similar to
+[python's](https://docs.python.org/3/library/stdtypes.html#str.format)).  
+`fmt` accepts a string and a table of nodes. Each occurrence of a delimiter-pair
+in the string is replaced by one node from the table, while text outside the
+delimiters is turned into textNodes.
 
 Simple example:
 
@@ -1115,6 +1123,9 @@ ls.add_snippets("all", {
 ![fmt](https://user-images.githubusercontent.com/25300418/184359228-d30df745-0fe8-49df-b28d-662e7eb050ec.gif)
 
 <!-- panvimdoc-ignore-end -->
+
+One important detail here is that the position of the delimiters does not, in
+any way, correspond to the insert-position of the nodes!
 
 `fmt(format:string, nodes:table of nodes, opts:table|nil) -> table of nodes`
 
