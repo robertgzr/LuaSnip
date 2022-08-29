@@ -984,8 +984,9 @@ is only a short outline, their usage is shown more expansively in
   node with jump-index `n` are replaced with "e", one could use
   `lambda(lambda._1:gsub("a", "e"), n)` (signature is similar to that of
   `functionNode`).  
-  `lambda._n` returns the text of the `n`th argnode. If this text has multiple
-  lines, they are concatenated with "\n".
+  `lambda._n` returns the text of the `n`th argnode (`args[n]`, in the
+  functionNode-function). If this text has multiple lines, they are concatenated
+  with "\n".
 
 - `match`: Can insert text based on a predicate (shorthand for `functionNode`s).
 The complete signature for the node is `match(argnodes, condition, then, else)`, where
