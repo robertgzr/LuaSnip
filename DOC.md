@@ -152,7 +152,7 @@ The third argument (`opts`) is a table with the following valid keys:
   should be set as follows:
   ```lua
   {
-  	-- position of the node, not the jump-position!!
+  	-- position of the node, not the jump-index!!
   	-- s("trig", {t"first node", t"second node", i(1, "third node")}).
   	[2] = {
   		[events.enter] = function(node, _event_args) print("2!") end
@@ -210,7 +210,7 @@ s("trigger", {
 # INSERTNODE
 
 These Nodes contain editable text and can be jumped to- and from (e.g.
-traditional placeholders, like `$1` in textmate-snippets).
+traditional placeholders and tabstops, like `$1` in textmate-snippets).
 
 The functionality is best demonstrated with an example:
 
@@ -228,18 +228,18 @@ s("trigger", {
 
 <!-- panvimdoc-ignore-end -->
 
-The InsertNodes are jumped over in order from `1 to n`.
-The 0-th node is special as it's always the last one.
-So the order of InsertNode jump is as follows:
+The InsertNodes are visited in order `1,2,3,..,n,0`.  
+(The jump-index 0 also _has_ to belong to an `insertNode`!)
+So the order of InsertNode-jumps is as follows:
 
-1. After expansion, we will be at InsertNode 1.
-2. After jumping forward, we will be at InsertNode 2.
-3. After jumping forward again, we will be at InsertNode 0.
+1. After expansion, the cursor is at InsertNode 1,
+2. after jumping forward once at InsertNode 2,
+3. and after jumping forward again at InsertNode 0.
 
 If no 0-th InsertNode is found in a snippet, one is automatically inserted
-after all other nodes.
+behind other nodes.
 
-The jumping-order doesn't have to follow the "textual" order of the nodes:
+The jump-order doesn't have to follow the "textual" order of the nodes:
 ```lua
 s("trigger", {
 	t({"After jumping forward once, cursor is here ->"}), i(2),
@@ -254,7 +254,7 @@ The above snippet will behave as follows:
 3. After jumping forward again, we will be at InsertNode 0.
 
 An **important** (because here luasnip differs from other snippet-engines) detail
-is that the jump-positions restart at 1 in nested snippets:
+is that the jump-indices restart at 1 in nested snippets:
 ```lua
 s("trigger", {
 	i(1, "First jump"),
@@ -279,14 +279,15 @@ ${1:First jump} :: ${2: ${3:Third jump} : ${4:Fourth jump}}
 ```
 (this is not exactly the same snippet of course, but as close as possible)
 (the restart-rule only applies when defining snippets in lua, the above
-textmate-snippet will expand correctly).
+textmate-snippet will expand correctly when parsed).
 
 It's possible to have initial text inside an InsertNode, which is comfortable
 for potentially keeping some default-value:
 ```lua
 	s("trigger", i(1, "This text is SELECTed after expanding the snippet."))
 ```
-This initial text is defined the same way as textNodes, e.g. can be multiline.
+This initial text is defined the same way as textNodes, e.g. must be a table for
+multiline-text.
 
 `i(0)`s can have initial text, but do note that when the SELECTed text is
 replaced, its' replacement won't end up in the `i(0)`, but behind it (for
@@ -345,8 +346,8 @@ of strings for multiline-string, here all lines following the first will be
 prefixed with the snippets' indentation.
 
 
-The second parameter is a table of indices of jumpable nodes whose text is
-passed to the function.
+The second parameter is a table of jump-indices. The text contained in the
+corresponding nodes is passed to the function.  
 The table may be empty, in this case the function is evaluated once upon
 snippet-expansion.
 If the table only has a single node, it can be passed directly without wrapping
@@ -569,10 +570,10 @@ ChoiceNodes allow choosing between multiple nodes.
 
 <!-- panvimdoc-ignore-end -->
 
-`c()` expects as its first arg, as with any jumpable node, its position in the
-jumplist, and as its second a table with nodes, the choices. This table can
-either contain a single node or a table of nodes. In the latter case the table
-will be converted into a `snippetNode`.
+`c()` expects as its first arg, as with any jumpable node, its' jump-index, and
+as its second a table with nodes, the choices. This table can either contain a
+single node or a table of nodes. In the latter case the table will be converted
+into a `snippetNode`.  
 The third parameter is a table of options with the following keys:
 
 - `restore_cursor`: `false` by default. If it is set, and the node that was
@@ -633,8 +634,8 @@ This is useful for choiceNodes, which only accept one child, or dynamicNodes,
 where nodes are created at runtime and inserted as a snippetNode.
 
 Syntax is similar to snippets, however, where snippets require a table
-specifying when to expand, snippetNodes, similar to insertNodes, expect a
-number, as they too are jumpable:
+specifying when to expand, snippetNodes, similar to insertNodes, expect their
+jump-index.
 ```lua
  s("trig", sn(1, {
  	t("basically just text "),
@@ -642,7 +643,8 @@ number, as they too are jumpable:
  }))
 ```
 
-Note that snippetNodes don't expect an `i(0)`.
+Note that snippetNodes don't accept an `i(0)`, so the jump-indices of the nodes
+inside them have to be in `1,2,...,n`.
 
 <!-- panvimdoc-ignore-start -->
 
@@ -707,7 +709,7 @@ user-input.
 The prototype for the dynamicNodes' constructor is 
 `d(position:int, function, argnodes:table of nodes, opts: table)`:
 
-1. `position`: just like all jumpable nodes, when this node will be jumped into.
+1. `jump_index`: just like all jumpable nodes, its' position in the jump-list.
 2. `function`: `fn(args, parent, old_state, user_args1, ..., user_argsn) -> snippetNode`
    This function is called when the argnodes' text changes. It generates and
    returns (wrapped inside a `snippetNode`) the nodes that should be inserted
@@ -827,7 +829,7 @@ s("paren_change", {
 Here the text entered into `user_text` is preserved upon changing choice.
 
 The constructor for the restoreNode, `r`, takes (at most) three parameters:
-- `pos`, when to jump to this node.
+- `jump_index`, when to jump to this node.
 - `key`, the key that identifies which `restoreNode`s should share their
   content.
 - `nodes`, the contents of the `restoreNode`. Can either be a single node, or
@@ -932,7 +934,7 @@ s("trig", {
 There are some quirks in addressing nodes:
 ```lua
 s("trig", {
-	i(2), -- ai[2]: indices based on insert-order, not position.
+	i(2), -- ai[2]: indices based on jump-index, not position.
 	sn(1, { -- ai[1]
 		i(1), -- ai[1][1]
 		t"lel", -- not addressable.
@@ -977,10 +979,13 @@ is only a short outline, their usage is shown more expansively in
 `Examples/snippets.lua`):
 
 - `lambda`: A shortcut for `functionNode`s that only do very basic string-
-manipulation. For example, to replace all occurences of "a" in the nth insert
-with "e", one could use `lambda(lambda._1:gsub("a", "e"), n)` (signature is
-similar to that of `functionNode`).
-If a node has multiple lines, they will be concatenated using "\n".
+  manipulation.  
+  For example, to generate text where all occurences of "a" in the text of the
+  node with jump-index `n` are replaced with "e", one could use
+  `lambda(lambda._1:gsub("a", "e"), n)` (signature is similar to that of
+  `functionNode`).  
+  `lambda._n` returns the text of the `n`th argnode. If this text has multiple
+  lines, they are concatenated with "\n".
 
 - `match`: Can insert text based on a predicate (shorthand for `functionNode`s).
 The complete signature for the node is `match(argnodes, condition, then, else)`, where
@@ -1007,10 +1012,10 @@ The complete signature for the node is `match(argnodes, condition, then, else)`,
     * lambda: Simply the first value returned by the lambda.
 
   Examples:
-  * `match(n, "^ABC$", "A")` inserts "A" if the `n`th jumpable node matches
-    "ABC" exactly, nothing otherwise.
+  * `match(n, "^ABC$", "A")` inserts "A" if the node with jump-index `n` matches
+  	"ABC" exactly, nothing otherwise.
   * `match(n, lambda._1:match(lambda._1:reverse()), "PALINDROME")` inserts
-    "PALINDROME" if the nth jumpable node is a palindrome.
+    "PALINDROME" if the node with jump-index `n`th palindrome.
 
     ```lua
     s("trig", {
@@ -1019,25 +1024,28 @@ The complete signature for the node is `match(argnodes, condition, then, else)`,
     	m({1, 2}, l._1:match("^"..l._2.."$"), l._1:gsub("a", "e"))
     })
     ```
-    This inserts the text of the first insertNode, with all occurences of `a`
-    replaced with `e` if the second insertNode matches the first exactly.
+	This inserts the text of the node with jump-index 1, with all occurences of
+	`a` replaced with `e` if the second insertNode matches the first exactly.
 
-- `rep`: repeats the node with the passed index. `rep(1)` to repeat the content
-of the first insert.
+- `rep`: repeats the node with the passed index.
+  For example `rep(1)` to repeat the content of the node at jump-index 1.
 
-- `partial`: directly inserts the output of a function. Useful for e.g.
-`partial(os.date, "%Y")` (arguments passed after the function are passed to it).
+- `partial`: directly inserts the output of a function.  
+  Useful for e.g. `partial(os.date, "%Y")` (all arguments passed after the
+  function are passed to it).
 
-- `nonempty`: inserts text if the insert at the given index doesn't contain any
-text. `nonempty(n, "not empty!", "empty!")` inserts "empty!" if insert n is
-empty, "not empty!" if it isn't.
+- `nonempty`: inserts text if the node at the given jump-index doesn't contain
+  any text.  
+  `nonempty(n, "not empty!", "empty!")` inserts "empty!" if the node
+  at jump-index n is empty, "not empty!" if it isn't.
 
 - `dynamic_lambda`: Operates almost exactly like `lambda`, only that it can be
-jumped to, and it's contents therefore be easily overridden.
-`dynamic_lambda(2, lambda._1..lambda._1, 1)` will first contain the content of
-insert 1 appended to itself, but the second jump will lead to it, making it
-easy to override the generated text.
-The text will only be changed when a argnode updates it.
+  jumped to, and its' contents therefore easily overridden (this is basically a
+  dynamicNode generating a single insertNode).  
+  `dynamic_lambda(2, lambda._1..lambda._1, 1)` will first contain the content of
+  the node at jump-index 1 appended to itself, but the second jump (jump-index
+  is 2) will lead to it, making it easy to override the generated text. The text
+  will only be changed when an argnode updates it.
 
 ```lua
 ls.add_snippets("all", {
@@ -1125,7 +1133,7 @@ ls.add_snippets("all", {
 <!-- panvimdoc-ignore-end -->
 
 One important detail here is that the position of the delimiters does not, in
-any way, correspond to the insert-position of the nodes!
+any way, correspond to the jump-index of the nodes!
 
 `fmt(format:string, nodes:table of nodes, opts:table|nil) -> table of nodes`
 
