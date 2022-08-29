@@ -707,7 +707,7 @@ which makes them very powerful as parts of the snippet can be changed based on
 user-input.
 
 The prototype for the dynamicNodes' constructor is 
-`d(position:int, function, argnodes:table of nodes, opts: table)`:
+`d(jump_index:int, function, argnodes:table of nodes, opts: table)`:
 
 1. `jump_index`: just like all jumpable nodes, its' position in the jump-list.
 2. `function`: `fn(args, parent, old_state, user_args1, ..., user_argsn) -> snippetNode`
