@@ -237,7 +237,7 @@ So the order of InsertNode-jumps is as follows:
 3. and after jumping forward again at InsertNode 0.
 
 If no 0-th InsertNode is found in a snippet, one is automatically inserted
-behind other nodes.
+after all other nodes.
 
 The jump-order doesn't have to follow the "textual" order of the nodes:
 ```lua
