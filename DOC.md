@@ -92,89 +92,105 @@ The most direct way to define snippets is `s`:
 ```lua
 s({trig="trigger"}, {})
 ```
+(This snippet is useless beyond serving as a minimal example)
 
-(This snippet is useless beyond being a minimal example)
+`s(context, nodes, opts) -> snippet`
 
-`s` accepts, as the first argument, a table with the following possible
-entries:
+- `context`: Either table or a string. Passing a string is equivalent to passing
 
-- `trig`: string, plain text by default. The only entry that must be given.
-- `name`: string, can be used by e.g. `nvim-compe` to identify the snippet.
-- `dscr`: string, description of the snippet, \n-separated or table
-  for multiple lines.
-- `wordTrig`: boolean, if true, the snippet is only expanded if the word
-  (`[%w_]+`) before the cursor matches the trigger entirely.
-  True by default.
-- `regTrig`: boolean, whether the trigger should be interpreted as a
-  lua pattern. False by default.
-- `docstring`: string, textual representation of the snippet, specified like
-  `dscr`. Overrides docstrings loaded from json.
-- `docTrig`: string, for snippets triggered using a lua pattern: define the
-  trigger that is used during docstring-generation.
-- `hidden`: hint for completion-engines, if set, the snippet should not show
-  up when querying snippets.
-- `priority`: Priority of the snippet, a positive number, 1000 by default.
-  Snippets with high priority will be matched to a trigger before those with a
-  lower one.
-  The priority for multiple snippets can also be set in `add_snippets`.
-
-`s` can also be a single string, in which case it is used instead of `trig`, all
-other values being defaulted:
-
-```lua
-s("trigger", {})
-```
-
-The second argument to `s` is a table containing all nodes that belong to the
-snippet. If the table only has a single node, it can be passed directly
-without wrapping it in a table.
-
-The third argument (`opts`) is a table with the following valid keys:
-
-- `condition`: the condition-function `fn(line_to_cursor, matched_trigger,
-  captures) -> bool`.
-  The snippet will be expanded only if it returns true (default is a function
-  that just returns `true`).
-  The function is called before the text is modified in any way.
-  Some parameters are passed to the function: The line up to the cursor, the
-  matched trigger, and the captures (table).
-- `show_condition`: Function with signature `f(line_to_cursor) -> bool`.
-  It is a hint for completion-engines, indicating when the snippet should be
-  included in current completion candidates.
-  Defaults to a function returning `true`.
-  This is different from `condition` because `condition` is evaluated by
-  LuaSnip on snippet expansion (and thus has access to the matched trigger and
-  captures), while `show_condition` is evaluated by the completion-engine when
-  scanning for available snippet candidates.
-- `callbacks`: Contains functions that are called upon enterin/leaving a node
-  of this snippet.
-  To print text upon entering the _second_ node of a snippet, `callbacks`
-  should be set as follows:
   ```lua
   {
-  	-- position of the node, not the jump-index!!
-  	-- s("trig", {t"first node", t"second node", i(1, "third node")}).
-  	[2] = {
-  		[events.enter] = function(node, _event_args) print("2!") end
-  	}
+  	trig = context
   }
   ```
-  To register a callback for the snippets' own events, the key `[-1]` may
-  be used.
-  More info on events [here](#here)
-- `child_ext_opts`, `merge_child_ext_opts`: `ext_opts` applied to the children
-  of this snippet. More info [here](#ext_opts).
 
-This `opts`-table can also be passed to e.g.	`snippetNode` or `indentSnippetNode`,
-but only `callbacks` and the `ext_opts`-related options are used there.
+  The following keys are valid:
+  - `trig`: string, plain text by default. The only entry that must be given.
+  - `name`: string, can be used by e.g. `nvim-compe` to identify the snippet.
+  - `dscr`: string, description of the snippet, \n-separated or table
+    for multiple lines.
+  - `wordTrig`: boolean, if true, the snippet is only expanded if the word
+    (`[%w_]+`) before the cursor matches the trigger entirely.
+    True by default.
+  - `regTrig`: boolean, whether the trigger should be interpreted as a
+    lua pattern. False by default.
+  - `docstring`: string, textual representation of the snippet, specified like
+    `dscr`. Overrides docstrings loaded from json.
+  - `docTrig`: string, for snippets triggered using a lua pattern: define the
+    trigger that is used during docstring-generation.
+  - `hidden`: hint for completion-engines, if set, the snippet should not show
+    up when querying snippets.
+  - `priority`: Priority of the snippet, a positive number, 1000 by default.
+    Snippets with high priority will be matched to a trigger before those with a
+    lower one.
+    The priority for multiple snippets can also be set in `add_snippets`.
 
-Snippets contain some interesting tables, e.g. `snippet.env` contains variables
-used in the LSP-protocol like `TM_CURRENT_LINE` or `TM_FILENAME` or
-`snippet.captures`, where capture-groups of regex-triggers are stored.
-Additionally, the string that was used to trigger the snippet is stored in
-`snippet.trigger`. These variables/tables are primarily useful in
-dynamic/functionNodes, where the snippet can be accessed through the immediate
-parent (`parent.snippet`), which is passed to the function.
+- `nodes`: A single node, or a list of nodes. These are the nodes that make up
+  the snippet.
+
+- `opts`: A table, with the following valid keys:
+
+  - `condition`: `fn(line_to_cursor, matched_trigger, captures) -> bool`, where
+      - `line_to_cursor`: `string`, the line up to the cursor.
+      - `matched_trigger`: `string`, the fully matched trigger (can be retrieved
+      	from `line_to_cursor`, but we already have that info here :D)
+      - `captures`: if the trigger is pattern, this list contains the
+      	capture-groups. Again, could be computed from `line_to_cursor`, but we
+      	already did so.
+
+	The snippet will be expanded only if this function returns true (default is
+	a function that just returns `true`).  
+    The function is called before the text on the line is modified in any way.
+  - `show_condition`: `f(line_to_cursor) -> bool`.  
+    - `line_to_cursor`: `string`, the line up to the cursor.  
+
+    It is a hint for completion-engines, indicating when the snippet should be
+    included in current completion candidates.
+    Defaults to a function returning `true`.
+    This is different from `condition` because `condition` is evaluated by
+    LuaSnip on snippet expansion (and thus has access to the matched trigger and
+    captures), while `show_condition` is evaluated by the completion-engine when
+    scanning for available snippet candidates.
+  - `callbacks`: Contains functions that are called upon enterin/leaving a node
+    of this snippet.
+    To print text upon entering the _second_ node of a snippet, `callbacks`
+    should be set as follows:
+    ```lua
+    {
+    	-- position of the node, not the jump-index!!
+    	-- s("trig", {t"first node", t"second node", i(1, "third node")}).
+    	[2] = {
+    		[events.enter] = function(node, _event_args) print("2!") end
+    	}
+    }
+    ```
+    To register a callback for the snippets' own events, the key `[-1]` may
+    be used.
+    More info on events [here](#events)
+  - `child_ext_opts`, `merge_child_ext_opts`: Control `ext_opts` applied to the
+  	children of this snippet. More info on those [here](#ext_opts).
+
+The `opts`-table can also be passed to e.g. `snippetNode` and
+`indentSnippetNode`, but only `callbacks` and the `ext_opts`-related options are
+used there.
+
+### Snippet-Data
+
+Snippets contain some interesting tables during runtime:
+- `snippet.env`: Contains variables used in the LSP-protocol, for example
+  `TM_CURRENT_LINE` or `TM_FILENAME`. It's possible to add customized variables
+  here too, check [Environment Namespaces](#environment-namespaces)
+- `snippet.captures`: If the snippet was triggered by a pattern (`regTrig`), and
+  the pattern contained capture-groups, they can be retrieved here.
+- `snippet.trigger`: The string that triggered this snippet. Again, only
+  interesting if the snippet was triggered through `regTrig`, for getting the
+  full match.
+
+These variables/tables primarily come in handy in `dynamic/functionNodes`, where
+the snippet can be accessed through the immediate parent (`parent.snippet`),
+which is passed to the function.
+(in most cases `parent == parent.snippet`, but the `parent` of the dynamicNode
+is not always the surrounding snippet, it could be a `snippetNode`).
 
 ## Api:
 
@@ -206,6 +222,9 @@ s("trigger", {
 })
 ```
 
+`t(text, node_opts)`:
+- `text`: `string` or `string[]`
+- `node_opts`: `table`, see [here](#node)
 
 # INSERTNODE
 
@@ -281,17 +300,16 @@ ${1:First jump} :: ${2: ${3:Third jump} : ${4:Fourth jump}}
 (the restart-rule only applies when defining snippets in lua, the above
 textmate-snippet will expand correctly when parsed).
 
-It's possible to have initial text inside an InsertNode, which is comfortable
-for potentially keeping some default-value:
-```lua
-	s("trigger", i(1, "This text is SELECTed after expanding the snippet."))
-```
-This initial text is defined the same way as textNodes, e.g. must be a table for
-multiline-text.
+`i(jump_index, text, node_opts)`
 
-`i(0)`s can have initial text, but do note that when the SELECTed text is
-replaced, its' replacement won't end up in the `i(0)`, but behind it (for
-reasons, check out Luasnip#110).
+- `jump_index`: `number`, this determines when this node will be jumped to.
+- `text`: `string|string[]`, a single string for just one line, a list with >1
+  entries for multiple lines.
+  This text will be SELECTed when the `insertNode` is jumped into.
+- `node_opts`: `table`, see [here](#node)
+
+If the `jump_index` is `0`, replacing its' `text` will leave it outside the
+`insertNode` (for reasons, check out Luasnip#110).
 
 
 # FUNCTIONNODE
@@ -324,128 +342,131 @@ s("trig", {
 
 <!-- panvimdoc-ignore-end -->
 
-The first parameter of `f` is the function. Its parameters are:
+`f(fn, argnode_references, node_opts)`:
+- `fn`: `function(argnode_text, parent, user_args1,...,user_argsn) -> text`  
+  - `argnode_text`: `string[][]`, the text currently contained in the argnodes
+    (e.g. `{{line1}, {line1, line2}}`). The snippet-indent will be removed from
+    all lines following the first.
 
-1. A table of the text of currently contained in the argnodes.
-      (e.g. `{{line1}, {line1, line2}}`). The snippet-indent will be removed from
-      all lines following the first.
+  - `parent`: The immediate parent of the `functionNode`.  
+    It is included here as it allows easy access to some information that could
+    be useful in functionNodes (see [here](#snippet-data) for some examples).  
+    Many snippets access the surrounding snippet just as `parent`, but if the
+    `functionNode` is nested within a `snippetNode`, the immediate parent is a
+    `snippetNode`, not the surrounding snippet (only the surrounding snippet
+    contains data like `env` or `captures`).
 
-2. The immediate parent of the `functionNode`. It is included here as it allows
-      easy access to anything that could be useful in functionNodes (i.e.
-      `parent.snippet.env` or `parent.snippet.captures`, which contains capture
-      groups of regex-triggered snippets). In most cases `parent.env` works,
-      but if a `functionNode` is nested within a `snippetNode`, the immediate
-      parent (a `snippetNode`) will contain neither `captures` nor `env`. Those
-      are only stored in the `snippet`, which can be accessed as `parent.snippet`.
+  - `user_args`: The `user_args` passed in `opts`. Note that there may be multiple user_args
+    (e.g. `user_args1, ..., user_argsn`).
+  
+  `fn` shall return a string, which will be inserted as-is, or a table of
+  strings for multiline-string, here all lines following the first will be
+  prefixed with the snippets' indentation.
 
-3. The `user_args` passed in `opts`. Note that there may be multiple user_args
-      (e.g. `user_args1, ..., user_argsn`).
+- `argnode_references`: List or just one of either:
+  - `number`: the jump-index of the argnode.
+    This will be resolved inside the parent of this `functionNode`.
+  - [`absolute_indexer`](#absolute_indexer): the absolute position of the
+    argnode.
+  - `node`: the argnode. Usage of this is discouraged, since it can lead to
+    subtle errors (if the node passed here is for example captured in a
+    closure (there's a big comment about just this in commit 8bfbd61)).
+  - `nil`: if there are no argnodes, the function will be evaluated once upon
+    expansion.
 
-The function shall return a string, which will be inserted as-is, or a table
-of strings for multiline-string, here all lines following the first will be
-prefixed with the snippets' indentation.
+- `node_opts`: `table`, see [here](#node). One additional key is supported:
+  - `user_args`: any[], these will be passed to `fn` as `user_arg1`-`user_argn`.
+    These make it easier to reuse similar functions, for example a functionNode
+    that wraps some text in different delimiters (`()`, `[]`, ...).
 
+    ```lua
+    local function reused_func(_,_, user_arg1)
+        return user_arg1
+    end
 
-The second parameter is a table of jump-indices. The text contained in the
-corresponding nodes is passed to the function.  
-The table may be empty, in this case the function is evaluated once upon
-snippet-expansion.
-If the table only has a single node, it can be passed directly without wrapping
-it in a table.
-The indices can be specified either as relative to the functionNodes' parent
-using numbers or as absolute, using the [`absolute_indexer`](#absolute_indexer).
+    s("trig", {
+        f(reused_func, {}, {
+            user_args = {"text"}
+        }),
+        f(reused_func, {}, {
+            user_args = {"different text"}
+        }),
+    })
+    ```
 
-The last parameter is, as with any node, `opts`.
-`functionNode` accepts one additional option: `user_args`, a table of values
-passed to the function.
-These exist to more easily reuse functionNode-functions, when applicable:
+    <!-- panvimdoc-ignore-start -->
+    
+    ![FunctionNode2](https://user-images.githubusercontent.com/25300418/184359244-ef83b8f7-28a3-45ff-a2af-5b564f213749.gif)
+    
+    <!-- panvimdoc-ignore-end -->
 
-```lua
-local function reused_func(_,_, user_arg1)
-	return user_arg1
-end
+**Examples**:
 
-s("trig", {
-	f(reused_func, {}, {
-		user_args = {"text"}
-	}),
-	f(reused_func, {}, {
-		user_args = {"different text"}
-	}),
-})
-```
+- Use captures from the regex-trigger using a functionNode:
 
-<!-- panvimdoc-ignore-start -->
+  ```lua
+  s({trig = "b(%d)", regTrig = true},
+  	f(function(args, snip) return
+  		"Captured Text: " .. snip.captures[1] .. "." end, {})
+  )
+  ```
+  
+  <!-- panvimdoc-ignore-start -->
+  
+  ![FunctionNode3](https://user-images.githubusercontent.com/25300418/184359248-6b13a80c-f644-4979-a566-958c65a4e047.gif)
+  
+  <!-- panvimdoc-ignore-end -->
 
-![FunctionNode2](https://user-images.githubusercontent.com/25300418/184359244-ef83b8f7-28a3-45ff-a2af-5b564f213749.gif)
+- `argnodes_text` during function-evaluation:
 
-<!-- panvimdoc-ignore-end -->
+  ```lua
+  s("trig", {
+  	i(1, "text_of_first"),
+  	i(2, {"first_line_of_second", "second_line_of_second"}),
+  	f(function(args, snip)
+  		--here
+  	-- order is 2,1, not 1,2!!
+  	end, {2, 1} )})
+  ```
+  
+  <!-- panvimdoc-ignore-start -->
+  
+  ![FunctionNode4](https://user-images.githubusercontent.com/25300418/184359259-ebb7cfc0-e30b-4735-9627-9ead45d9f27c.gif)
+  
+  <!-- panvimdoc-ignore-end -->
+  
+  At `--here`, `args` would look as follows (provided no text was changed after
+  expansion):
+  ```lua
+  args = {
+  	{"first_line_of_second", "second_line_of_second"},
+  	{"text_of_first"}
+  }
+  ```
+  
+  <!-- panvimdoc-ignore-start -->
+  
+  ![FunctionNode5](https://user-images.githubusercontent.com/25300418/184359263-89323682-6128-40ea-890e-b184a1accf80.gif)
+  
+  <!-- panvimdoc-ignore-end -->
 
-Examples:
-Use captures from the regex-trigger using a functionNode:
+- [`absolute_indexer`](#absolute_indexer):
 
-```lua
-s({trig = "b(%d)", regTrig = true},
-	f(function(args, snip) return
-		"Captured Text: " .. snip.captures[1] .. "." end, {})
-)
-```
-
-<!-- panvimdoc-ignore-start -->
-
-![FunctionNode3](https://user-images.githubusercontent.com/25300418/184359248-6b13a80c-f644-4979-a566-958c65a4e047.gif)
-
-<!-- panvimdoc-ignore-end -->
-
-The table passed to functionNode:
-
-```lua
-s("trig", {
-	i(1, "text_of_first"),
-	i(2, {"first_line_of_second", "second_line_of_second"}),
-	-- order is 2,1, not 1,2!!
-	f(function(args, snip)
-		--here
-	end, {2, 1} )})
-```
-
-<!-- panvimdoc-ignore-start -->
-
-![FunctionNode4](https://user-images.githubusercontent.com/25300418/184359259-ebb7cfc0-e30b-4735-9627-9ead45d9f27c.gif)
-
-<!-- panvimdoc-ignore-end -->
-
-At `--here`, `args` would look as follows (provided no text was changed after
-expansion):
-```lua
-args = {
-	{"first_line_of_second", "second_line_of_second"},
-	{"text_of_first"}
-}
-```
-
-<!-- panvimdoc-ignore-start -->
-
-![FunctionNode5](https://user-images.githubusercontent.com/25300418/184359263-89323682-6128-40ea-890e-b184a1accf80.gif)
-
-<!-- panvimdoc-ignore-end -->
-
-One more example to show usage of `absolute_indexer`:
-```lua
-s("trig", {
-	i(1, "text_of_first"),
-	i(2, {"first_line_of_second", "second_line_of_second"}),
-	f(function(args, snip)
-		-- just concat first lines of both.
-		return args[1][1] .. args[2][1]
-	end, {ai[2], ai[1]} )})
-```
-
-<!-- panvimdoc-ignore-start -->
-
-![FunctionNode6](https://user-images.githubusercontent.com/25300418/184359271-018a703d-a9c8-4c9d-8833-b16495be5b08.gif)
-
-<!-- panvimdoc-ignore-end -->
+  ```lua
+  s("trig", {
+  	i(1, "text_of_first"),
+  	i(2, {"first_line_of_second", "second_line_of_second"}),
+  	f(function(args, snip)
+  		-- just concat first lines of both.
+  		return args[1][1] .. args[2][1]
+  	end, {ai[2], ai[1]} )})
+  ```
+  
+  <!-- panvimdoc-ignore-start -->
+  
+  ![FunctionNode6](https://user-images.githubusercontent.com/25300418/184359271-018a703d-a9c8-4c9d-8833-b16495be5b08.gif)
+  
+  <!-- panvimdoc-ignore-end -->
 
 If the function only performs simple operations on text, consider using
 the `lambda` from [`luasnip.extras`](#extras)
