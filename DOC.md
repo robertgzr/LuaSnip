@@ -489,36 +489,37 @@ ChoiceNodes allow choosing between multiple nodes.
 
 <!-- panvimdoc-ignore-end -->
 
-`c()` expects as its first arg, as with any jumpable node, its' jump-index, and
-as its second a table with nodes, the choices. This table can either contain a
-single node or a table of nodes. In the latter case the table will be converted
-into a `snippetNode`.  
-The third parameter is a table of options with the following keys:
-
-- `restore_cursor`: `false` by default. If it is set, and the node that was
-	being edited also appears in the switched-to choice (can be the case if a
-	`restoreNode` is present in both choice) the cursor is restored relative to
-	that node.
-	The default is `false` as enabling might lead to worse performance. It's
-	possible to override the default by wrapping the `choiceNode`-constructor
-	in another function that sets `opts.restore_cursor` to `true` and then using
-	that to construct `choiceNode`s:
-    ```lua
-    local function restore_cursor_choice(pos, choices, opts)
-        if opts then
-            opts.restore_cursor = true
-        else
-            opts = {restore_cursor = true}
-        end
-        return c(pos, choices, opts)
-    end
-    ```
+`c(jump_indx, choices, node_opts)`
+- `jump_indx`: `number`, since choiceNodes can be jumped to, they need their
+  jump-indx.
+- `choices`: `node[]|node`, the choices. The first will be initialliy active.
+  A list of nodes will be turned into a `snippetNode`.
+- `node_opts`, `table`. `choiceNode` supports the keys common to all nodes
+  described [here](#node), and one additional key:
+  - `restore_cursor`: `false` by default. If it is set, and the node that was
+    being edited also appears in the switched-to choice (can be the case if a
+    `restoreNode` is present in both choice) the cursor is restored relative to
+    that node.  
+    The default is `false` as enabling might lead to decreased performance. It's
+    possible to override the default by wrapping the `choiceNode`-constructor
+    in another function that sets `opts.restore_cursor` to `true` and then using
+    that to construct `choiceNode`s:
+      ```lua
+      local function restore_cursor_choice(pos, choices, opts)
+          if opts then
+              opts.restore_cursor = true
+          else
+              opts = {restore_cursor = true}
+          end
+          return c(pos, choices, opts)
+      end
+      ```
 
 Jumpable nodes that normally expect an index as their first parameter don't
-need one inside a choiceNode; their index is the same as the choiceNodes'.
+need one inside a choiceNode; their jump-index is the same as the choiceNodes'.
 
 As it is only possible (for now) to change choices from within the choiceNode,
-make sure that all of the choices have some place for the cursor to stop at.
+make sure that all of the choices have some place for the cursor to stop at!  
 This means that in `sn(nil, {...nodes...})` `nodes` has to contain e.g. an
 `i(1)`, otherwise luasnip will just "jump through" the nodes, making it
 impossible to change the choice.
@@ -532,8 +533,11 @@ c(1, {
 })
 ```
 
-The active choice for a choiceNode can be changed by calling `ls.change_choice(1)`
-(forwards) or `ls.change_choice(-1)` (backwards), for example via
+The active choice for a choiceNode can be changed by either calling one of
+`ls.change_choice(1)` (forwards) or `ls.change_choice(-1)` (backwards), or by
+calling `ls.set_choice(choice_indx)`.  
+One way to easily interact with choiceNodes is binding `change_choice(1/-1)` to
+keys:
 
 ```lua
 -- set keybinds for both INSERT and VISUAL.
