@@ -63,7 +63,32 @@ Snippets are always created using the `s(trigger:string, nodes:table)`-function.
 It is explained in more detail in [SNIPPETS](#snippets), but the gist is that
 it creates a snippet that contains the nodes specified in `nodes`, which will be
 inserted into a buffer if the text before the cursor matches `trigger` when
-`expand` is called.
+`ls.expand` is called.  
+
+## Jump-index
+Nodes that can be jumped to (`insertNode`, `choiceNode`, `dynamicNode`,
+`restoreNode`, `snippetNode`) all require a "jump-index" so luasnip knows the
+order in which these nodes are supposed to be visited ("jumped to").  
+
+```lua
+s("trig", {
+	i(1), t"text", i(2), t"text again", i(3)
+})
+```
+
+These indices don't "run" through the entire snippet, like they do in
+textmate-snippets (`"$1 ${2: $3 $4}"`), they restart at 1 in each nested
+snippetNode:
+```lua
+s("trig", {
+	i(1), t" ", sn(2, {
+		t" ", i(1), t" ", i(2)
+	})
+})
+```
+(roughly equivalent to the given textmate-snippet).
+
+## Adding Snippets
 The snippets for a given filetype have to be added to luasnip via
 `ls.add_snippets(filetype, snippets)`. Snippets that should be accessible
 globally (in all filetypes) have to be added to the special filetype `all`.
@@ -302,7 +327,7 @@ textmate-snippet will expand correctly when parsed).
 
 `i(jump_index, text, node_opts)`
 
-- `jump_index`: `number`, this determines when this node will be jumped to.
+- [`jump_index`](#jump-index): `number`, this determines when this node will be jumped to.
 - `text`: `string|string[]`, a single string for just one line, a list with >1
   entries for multiple lines.
   This text will be SELECTed when the `insertNode` is jumped into.
@@ -500,8 +525,8 @@ ChoiceNodes allow choosing between multiple nodes.
 
 <!-- panvimdoc-ignore-end -->
 
-`c(jump_indx, choices, node_opts)`
-- `jump_indx`: `number`, since choiceNodes can be jumped to, they need their
+`c(jump_index, choices, node_opts)`
+- [`jump_index`](#jump-index): `number`, since choiceNodes can be jumped to, they need their
   jump-indx.
 - `choices`: `node[]|node`, the choices. The first will be initialliy active.
   A list of nodes will be turned into a `snippetNode`.
@@ -585,9 +610,9 @@ a jump-index.
 
 <!-- panvimdoc-ignore-end -->
 
-`sn(jump_indx, nodes, node_opts)`
+`sn(jump_index, nodes, node_opts)`
 
-- `jump_indx`: `number`, the usual.
+- [`jump_index`](#jump-index): `number`, the usual.
 - `nodes`: `node[]|node`, just like for `s`.  
   Note that `snippetNode`s don't accept an `i(0)`, so the jump-indices of the nodes
   inside them have to be in `1,2,...,n`.
@@ -644,7 +669,7 @@ applied after linebreaks.
 To enable such usage, `$PARENT_INDENT` in the indentstring is replaced by the
 parent's indent (duh).
 
-`isn(jump_indx, nodes, indentstring, node_opts)`
+`isn(jump_index, nodes, indentstring, node_opts)`
 
 All of these except `indentstring` are exactly the same as [`snippetNode`](#snippetnode).
 
@@ -661,7 +686,7 @@ user-input.
 
 `d(jump_index, function, node-references, opts)`:
 
-- `jump_index`: `number`, just like all jumpable nodes, its' position in the
+- [`jump_index`](#jump-index): `number`, just like all jumpable nodes, its' position in the
    jump-list.
 - `function`: `fn(args, parent, old_state, user_args) -> snippetNode`
    This function is called when the argnodes' text changes. It should generate
@@ -786,7 +811,7 @@ s("paren_change", {
 Here the text entered into `user_text` is preserved upon changing choice.
 
 The constructor for the restoreNode, `r`, takes (at most) three parameters:
-- `jump_index`, when to jump to this node.
+- [`jump_index`](#jump-index), when to jump to this node.
 - `key`, the key that identifies which `restoreNode`s should share their
   content.
 - `nodes`, the contents of the `restoreNode`. Can either be a single node, or
