@@ -363,19 +363,15 @@ s("trig", {
   strings for multiline-string, here all lines following the first will be
   prefixed with the snippets' indentation.
 
-- `argnode_references`: List or just one of either:
-  - `number`: the jump-index of the argnode.
-    This will be resolved inside the parent of this `functionNode`.
-  - [`absolute_indexer`](#absolute_indexer): the absolute position of the
-    argnode.
-  - `node`: the argnode. Usage of this is discouraged, since it can lead to
-    subtle errors (if the node passed here is for example captured in a
-    closure (there's a big comment about just this in commit 8bfbd61)).
-  - `nil`: if there are no argnodes, the function will be evaluated once upon
-    expansion.
+- `argnode_references`: `node_reference[]|node_refernce|nil`.  
+  Either no, a single, or multiple [node-references](#node_reference).
+  Changing any of these will trigger a re-evaluation of `fn`, and insertion of
+  the updated text.  
+  If no node-reference is passed, the `functionNode` is evaluated once upon
+  expansion.
 
 - `node_opts`: `table`, see [here](#node). One additional key is supported:
-  - `user_args`: any[], these will be passed to `fn` as `user_arg1`-`user_argn`.
+  - `user_args`: `any[]`, these will be passed to `fn` as `user_arg1`-`user_argn`.
     These make it easier to reuse similar functions, for example a functionNode
     that wraps some text in different delimiters (`()`, `[]`, ...).
 
@@ -471,6 +467,21 @@ s("trig", {
 If the function only performs simple operations on text, consider using
 the `lambda` from [`luasnip.extras`](#extras)
 
+## NODE_REFERENCE
+Node-references are used to refer to other nodes in various parts of luasnip's
+API.  
+For example, argnodes in functionNode, dynamicNode or lambda are
+node-references.  
+These references can be either of:
+  - `number`: the jump-index of the node.
+  This will be resolved inside the parent of the node this is passed to.
+  - [`absolute_indexer`](#absolute_indexer): the absolute position of the
+  node. This will come in handy if the referred-to node is not in the same
+  snippet/snippetNode as the one this node-reference is passed to.
+  - `node`: just the node. Usage of this is discouraged, since it can lead to
+  subtle errors (if the node passed here is for example captured in a
+  closure (there's a big comment about just this in commit 8bfbd61)).
+
 # CHOICENODE
 
 ChoiceNodes allow choosing between multiple nodes.
@@ -494,7 +505,7 @@ ChoiceNodes allow choosing between multiple nodes.
   jump-indx.
 - `choices`: `node[]|node`, the choices. The first will be initialliy active.
   A list of nodes will be turned into a `snippetNode`.
-- `node_opts`, `table`. `choiceNode` supports the keys common to all nodes
+- `node_opts`: `table`. `choiceNode` supports the keys common to all nodes
   described [here](#node), and one additional key:
   - `restore_cursor`: `false` by default. If it is set, and the node that was
     being edited also appears in the switched-to choice (can be the case if a
@@ -553,12 +564,14 @@ choice can be selected right away, via `vim.ui.select`.
 # SNIPPETNODE
 
 SnippetNodes directly insert their contents into the surrounding snippet.
-This is useful for choiceNodes, which only accept one child, or dynamicNodes,
-where nodes are created at runtime and inserted as a snippetNode.
+This is useful for `choiceNode`s, which only accept one child, or
+`dynamicNode`s, where nodes are created at runtime and inserted as a
+`snippetNode`.
 
-Syntax is similar to snippets, however, where snippets require a table
-specifying when to expand, snippetNodes, similar to insertNodes, expect their
-jump-index.
+Their syntax is similar to `s`, however, where snippets require a table
+specifying when to expand, `snippetNode`s, similar to `insertNode`s, expect
+a jump-index.
+
 ```lua
  s("trig", sn(1, {
  	t("basically just text "),
@@ -566,14 +579,24 @@ jump-index.
  }))
 ```
 
-Note that snippetNodes don't accept an `i(0)`, so the jump-indices of the nodes
-inside them have to be in `1,2,...,n`.
-
 <!-- panvimdoc-ignore-start -->
 
 ![SnippetNode](https://user-images.githubusercontent.com/25300418/184359349-2127147e-2f57-4612-bdb5-4c9eafc93fad.gif)
 
 <!-- panvimdoc-ignore-end -->
+
+`sn(jump_indx, nodes, node_opts)`
+
+- `jump_indx`: `number`, the usual.
+- `nodes`: `node[]|node`, just like for `s`.  
+  Note that `snippetNode`s don't accept an `i(0)`, so the jump-indices of the nodes
+  inside them have to be in `1,2,...,n`.
+- `node_opts`: `table`: again, all [common](#node) keys are supported, but also
+  - `callbacks`,
+  - `child_ext_opts` and
+  - `merge_child_ext_opts`,
+
+  which are further explained in [`SNIPPETS`](#snippets).
 
 # INDENTSNIPPETNODE
 
@@ -619,9 +642,16 @@ s("isn2", {
 Here the `//` before `This is` is important, once again, because indent is only
 applied after linebreaks.
 To enable such usage, `$PARENT_INDENT` in the indentstring is replaced by the
-parents' indent (duh).
+parent's indent (duh).
 
+`isn(jump_indx, nodes, indentstring, node_opts)`
 
+All of these except `indentstring` are exactly the same as [`snippetNode`](#snippetnode).
+
+- `indentstring`: `string`, will be used to indent the nodes inside this
+  `snippetNode`.  
+  All occurences of `"$PARENT_INDENT"` are replaced with the actual indent of
+  the parent.
 
 # DYNAMICNODE
 
@@ -629,36 +659,40 @@ Very similar to functionNode, but returns a snippetNode instead of just text,
 which makes them very powerful as parts of the snippet can be changed based on
 user-input.
 
-The prototype for the dynamicNodes' constructor is 
-`d(jump_index:int, function, argnodes:table of nodes, opts: table)`:
+`d(jump_index, function, node-references, opts)`:
 
-1. `jump_index`: just like all jumpable nodes, its' position in the jump-list.
-2. `function`: `fn(args, parent, old_state, user_args1, ..., user_argsn) -> snippetNode`
-   This function is called when the argnodes' text changes. It generates and
-   returns (wrapped inside a `snippetNode`) the nodes that should be inserted
-   at the dynamicNodes place.
+- `jump_index`: `number`, just like all jumpable nodes, its' position in the
+   jump-list.
+- `function`: `fn(args, parent, old_state, user_args) -> snippetNode`
+   This function is called when the argnodes' text changes. It should generate
+   and returns (wrapped inside a `snippetNode`) nodes, these will be inserted at
+   the dynamicNodes place.  
    `args`, `parent` and `user_args` are also explained in
-   [functionNode](#functionnode)
-   * `args`: `table of text` (`{{"node1line1", "node1line2"}, {"node2line1"}}`)
-     from nodes the dynamicNode depends on.
-   * `parent`: the immediate parent of the `dynamicNode`).
-   * `old_state`: a user-defined table. This table may contain
-     anything, its intended usage is to preserve information from the previously
-     generated `snippetNode`: If the `dynamicNode` depends on other nodes it may
-     be reconstructed, which means all user input (text inserted in `insertNodes`,
-     changed choices) to the previous dynamicNode is lost.
+   [FUNCTIONNODE](#functionnode)
+   - `args`: `table of text` (`{{"node1line1", "node1line2"}, {"node2line1"}}`)
+     from nodes the `dynamicNode` depends on.
+   - `parent`: the immediate parent of the `dynamicNode`.
+   - `old_state`: a user-defined table. This table may contain anything, its
+   	 intended usage is to preserve information from the previously generated
+   	 `snippetNode`: If the `dynamicNode` depends on other nodes it may be
+   	 reconstructed, which means all user input (text inserted in `insertNodes`,
+   	 changed choices) to the previous dynamicNode is lost.  
      The `old_state` table must be stored in `snippetNode` returned by
-     the function (`snippetNode.old_state`).
+     the function (`snippetNode.old_state`).  
      The second example below illustrates the usage of `old_state`.
-   * `user_args1, ..., user_argsn`: passed through from `dynamicNode`-opts.
-3. `argnodes`: Indices of nodes the dynamicNode depends on: if any of these trigger an
-   update, the `dynamicNode`s' function will be executed, and the result inserted at
-   the `dynamicNodes` place.
-   Can be a single index or a table of indices.
-4. `opts`: Just like `functionNode`, `dynamicNode` also accepts `user_args` in
-   addition to options common to all nodes.
+   - `user_args`: passed through from `dynamicNode`-opts, may be more than one
+   	 argument.
+- `node_references`: `node_reference[]|node_references|nil`,
+  [References](#node_reference) to the nodes the dynamicNode depends on: if any
+  of these trigger an update (for example if the text inside them
+  changes), the `dynamicNode`s' function will be executed, and the result
+  inserted at the `dynamicNodes` place.  
+  (`dynamicNode` behaves exactly the same as `functionNode` in this regard).
 
-Examples:
+- `opts`: In addition to the [usual](#node) keys, there is, again, 
+  - `user_args`, which is described in [FUNCTIONNODE](#functionnode).
+
+**Examples**:
 
 This `dynamicNode` inserts an `insertNode` which copies the text inside the
 first `insertNode`.
