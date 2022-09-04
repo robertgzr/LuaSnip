@@ -12,6 +12,9 @@ local next_expand_params = nil
 local ls
 local luasnip_data_dir = vim.fn.stdpath("cache") .. "/luasnip"
 
+-- require here to .
+require("luasnip.util.log")
+
 local function get_active_snip()
 	local node = session.current_nodes[vim.api.nvim_get_current_buf()]
 	if not node then
