@@ -5,6 +5,7 @@ local str_util = require("luasnip.util.str")
 local loader_util = require("luasnip.loaders.util")
 local Path = require("luasnip.util.path")
 local sp = require("luasnip.nodes.snippetProxy")
+local log = require("luasnip.util.log").new("vscode-loader")
 
 local function json_decode(data)
 	local status, result = pcall(util.json_decode, data)
@@ -22,6 +23,7 @@ local function get_file_snippets(file)
 	local data = Path.read_file(file)
 	local snippet_set_data = json_decode(data)
 	if snippet_set_data == nil then
+		log.warn("Could not parse json in %s", file)
 		return
 	end
 
@@ -97,6 +99,9 @@ local function load_snippet_files(lang, files, add_opts)
 					refresh_notify = false,
 				}, add_opts)
 			)
+			log.info("Adding snippets for %s from %s", lang, file)
+		else
+			log.warn("Trying to read snippets from file %s, but it does not exist.", lang, file)
 		end
 	end
 
@@ -113,15 +118,19 @@ end
 local function package_files(root, filter)
 	local package = Path.join(root, "package.json")
 	local data = Path.read_file(package)
+	-- if root doesn't contain a package.json, or it contributes no snippets,
+	-- return no snippets.
+	if not data then
+		log.warn("Tried reading package %s, but it does not exist", package)
+		return {}
+	end
 	local package_data = json_decode(data)
-	if
-		not (
-			package_data
-			and package_data.contributes
-			and package_data.contributes.snippets
-		)
-	then
-		-- root doesn't contain a package.json, return no snippets.
+	if not package_data then
+		log.warn("json in %s could not be parsed", package)
+		return {}
+	end
+	if not package_data.contributes or not package_data.contributes.snippets then
+		log.warn("%s does not contribute any snippets, skipping it", package)
 		return {}
 	end
 
@@ -216,6 +225,7 @@ function M._load_lazy_loaded(bufnr)
 	for _, ft in ipairs(fts) do
 		if not cache.lazy_loaded_ft[ft] then
 			M._load_lazy_loaded_ft(ft)
+			log.info("Loading lazy-load-snippets for ft `%s`", ft)
 			cache.lazy_loaded_ft[ft] = true
 		end
 	end
@@ -235,9 +245,12 @@ function M.lazy_load(opts)
 		if cache.lazy_loaded_ft[ft] then
 			-- instantly load snippets if they were already loaded...
 			load_snippet_files(ft, files, add_opts)
+			log.info("Immediately loading lazy-load-snippets for already-active filetype %s from files:\n%s", ft, vim.inspect(files))
 
 			-- don't load these files again.
 			ft_files[ft] = nil
+		else
+			log.info("Registering lazy-load-snippets for filetype %s from files:\n%s", ft, vim.inspect(files))
 		end
 	end
 
@@ -259,6 +272,7 @@ function M._reload_file(filename)
 		-- file is not loaded by this loader.
 		return
 	end
+	log.info("Re-loading snippets contributed by %s", filename)
 
 	cache.path_snippets[filename] = nil
 	local add_opts = cached_data.add_opts
