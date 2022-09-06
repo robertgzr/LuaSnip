@@ -1,10 +1,15 @@
--- no need to mkdir, this should always exist.
+-- just to be sure this dir exists.
+-- 448 = 0700
+vim.loop.fs_mkdir(vim.fn.stdpath("log"), 448)
+
 local luasnip_log_fd = vim.loop.fs_open(
 	vim.fn.stdpath("log") .. "/luasnip.log",
 	-- only append.
 	"a",
 	-- 420 = 0644
 	420)
+
+
 
 local function log_line_append(msg)
 	msg = msg:gsub("\n", "\n      | ")
