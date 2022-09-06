@@ -2,14 +2,19 @@
 -- 448 = 0700
 vim.loop.fs_mkdir(vim.fn.stdpath("log"), 448)
 
+local log_location = vim.fn.stdpath("log") .. "/luasnip.log"
+
 local luasnip_log_fd = vim.loop.fs_open(
-	vim.fn.stdpath("log") .. "/luasnip.log",
+	log_location,
 	-- only append.
 	"a",
 	-- 420 = 0644
 	420)
 
-
+local logsize = vim.loop.fs_fstat(luasnip_log_fd).size
+if logsize > 50*2^20 then
+	print("Luasnip's log now takes up more than 50MiB. Consider deleting it at " .. log_location)
+end
 
 local function log_line_append(msg)
 	msg = msg:gsub("\n", "\n      | ")
