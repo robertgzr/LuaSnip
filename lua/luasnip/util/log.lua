@@ -1,3 +1,4 @@
+local util = require("luasnip.util.util")
 -- just to be sure this dir exists.
 -- 448 = 0700
 vim.loop.fs_mkdir(vim.fn.stdpath("log"), 448)
@@ -16,38 +17,66 @@ if logsize > 50*2^20 then
 	print("Luasnip's log now takes up more than 50MiB. Consider deleting it at " .. log_location)
 end
 
+local M = {}
+
 local function log_line_append(msg)
 	msg = msg:gsub("\n", "\n      | ")
 	vim.loop.fs_write(luasnip_log_fd, msg .. "\n")
 end
 
 local log = {
+	error = function(msg)
+		log_line_append("ERROR | " .. msg)
+	end,
 	warn = function(msg)
 		log_line_append("WARN  | " .. msg)
 	end,
 	info = function(msg)
 		log_line_append("INFO  | " .. msg)
 	end,
-	error = function(msg)
-		log_line_append("ERROR | " .. msg)
-	end,
 	debug = function(msg)
 		log_line_append("DEBUG | " .. msg)
 	end
 }
 
-log.info("New session: " .. os.date())
+-- functions copied directly by deepcopy.
+-- will be initialized later on, by set_loglevel.
+local effective_log
 
-local M = {}
+-- levels sorted by importance, descending.
+local loglevels = {"error", "warn", "info", "debug"}
+
+-- special key none disable all logging.
+function M.set_loglevel(target_level)
+	local target_level_indx = util.indx_of(loglevels, target_level)
+	if target_level == "none" then
+		target_level_indx = 0
+	end
+
+	assert(target_level_indx ~= nil, "invalid level!")
+
+	-- reset effective loglevels, set those with importance higher than
+	-- target_level, disable (nop) those with lower.
+	effective_log = {}
+	for i = 1, target_level_indx do
+		effective_log[loglevels[i]] = log[loglevels[i]]
+	end
+	for i = target_level_indx+1, #loglevels do
+		effective_log[loglevels[i]] = util.nop
+	end
+end
 
 function M.new(module_name)
 	local module_log = { }
 	for name, _ in pairs(log) do
 		module_log[name] = function(msg, ...)
-			log[name](module_name .. ": " .. msg:format(...))
+			effective_log[name](module_name .. ": " .. msg:format(...))
 		end
 	end
 	return module_log
 end
+
+log.info("New session: " .. os.date())
+M.set_loglevel("warn")
 
 return M
