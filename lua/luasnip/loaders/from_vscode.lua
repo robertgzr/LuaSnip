@@ -101,7 +101,11 @@ local function load_snippet_files(lang, files, add_opts)
 			)
 			log.info("Adding snippets for %s from %s", lang, file)
 		else
-			log.warn("Trying to read snippets from file %s, but it does not exist.", lang, file)
+			log.warn(
+				"Trying to read snippets from file %s, but it does not exist.",
+				lang,
+				file
+			)
 		end
 	end
 
@@ -129,7 +133,9 @@ local function package_files(root, filter)
 		log.warn("json in %s could not be parsed", package)
 		return {}
 	end
-	if not package_data.contributes or not package_data.contributes.snippets then
+	if
+		not package_data.contributes or not package_data.contributes.snippets
+	then
 		log.warn("%s does not contribute any snippets, skipping it", package)
 		return {}
 	end
@@ -245,12 +251,20 @@ function M.lazy_load(opts)
 		if cache.lazy_loaded_ft[ft] then
 			-- instantly load snippets if they were already loaded...
 			load_snippet_files(ft, files, add_opts)
-			log.info("Immediately loading lazy-load-snippets for already-active filetype %s from files:\n%s", ft, vim.inspect(files))
+			log.info(
+				"Immediately loading lazy-load-snippets for already-active filetype %s from files:\n%s",
+				ft,
+				vim.inspect(files)
+			)
 
 			-- don't load these files again.
 			ft_files[ft] = nil
 		else
-			log.info("Registering lazy-load-snippets for filetype %s from files:\n%s", ft, vim.inspect(files))
+			log.info(
+				"Registering lazy-load-snippets for filetype %s from files:\n%s",
+				ft,
+				vim.inspect(files)
+			)
 		end
 	end
 
