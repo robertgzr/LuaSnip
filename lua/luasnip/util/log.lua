@@ -4,6 +4,7 @@ local util = require("luasnip.util.util")
 vim.loop.fs_mkdir(vim.fn.stdpath("log"), 448)
 
 local log_location = vim.fn.stdpath("log") .. "/luasnip.log"
+local log_old_location = vim.fn.stdpath("log") .. "/luasnip.log.old"
 
 local luasnip_log_fd = vim.loop.fs_open(
 	log_location,
@@ -13,8 +14,16 @@ local luasnip_log_fd = vim.loop.fs_open(
 	420)
 
 local logsize = vim.loop.fs_fstat(luasnip_log_fd).size
-if logsize > 50*2^20 then
-	print("Luasnip's log now takes up more than 50MiB. Consider deleting it at " .. log_location)
+if logsize > 10*2^20 then
+	-- logsize > 10MiB:
+	-- move log -> old log, start new log.
+	vim.loop.fs_rename(log_location, log_old_location)
+	luasnip_log_fd = vim.loop.fs_open(
+		log_location,
+		-- only append.
+		"a",
+		-- 420 = 0644
+		420)
 end
 
 local M = {}
