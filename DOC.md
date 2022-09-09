@@ -959,114 +959,178 @@ ai[1][2][3] == ai(1, 2, 3) == ai{1, 2, 3}
 
 # EXTRAS
 
-The module `"luasnip.extras"` contains nodes that ease writing snippets (This
-is only a short outline, their usage is shown more expansively in
-`Examples/snippets.lua`):
+## Lambda
+A shortcut for `functionNode`s that only do very basic string-
+manipulation.  
+`l(lambda, argnodes)`:
+- `lambda`: An object created by applying string-operations to `l._n`, objects
+  representing the `n`th argnode.  
+  For example: 
+  - `l._1:gsub("a", "e")` replaces all occurences of "a" in the text of the
+  first argnode with "e", or
+  - `l._1 .. l._2` concats text of the first and second argnode.
+  If an argnode contains multiple lines of text, they are concatenated with
+  `"\n"` prior to any operation.  
+- `argnodes`, [`node-references`](#node_reference), just like in function- and
+  dynamicNode.
 
-- `lambda`: A shortcut for `functionNode`s that only do very basic string-
-  manipulation.  
-  For example, to generate text where all occurences of "a" in the text of the
-  node with jump-index `n` are replaced with "e", one could use
-  `lambda(lambda._1:gsub("a", "e"), n)` (signature is similar to that of
-  `functionNode`).  
-  `lambda._n` returns the text of the `n`th argnode (`args[n]`, in the
-  functionNode-function). If this text has multiple lines, they are concatenated
-  with "\n".
+There are many examples for `lamda` in `Examples/snippets.lua`
 
-- `match`: Can insert text based on a predicate (shorthand for `functionNode`s).
-The complete signature for the node is `match(argnodes, condition, then, else)`, where
-  * `argnodes` can be specified as in `functionNode`,
-  * `condition` may be a
-    * string: interpreted as a lua-pattern. Matched on the `\n`-joined (in case
+## Match
+`match` can insert text based on a predicate (again, a shorthand for `functionNode`).
+
+`match(argnodes, condition, then, else)`, where
+  * `argnode`: A single [`node-reference`](#node_reference). May not be nil, or
+  	a table.
+  * `condition` may be either of
+    * `string`: interpreted as a lua-pattern. Matched on the `\n`-joined (in case
       it's multiline) text of the first argnode (`args[1]:match(condition)`).
-    * function: `fn(args, snip) -> bool`: takes the same parameters as the
+    * `function`: `fn(args, snip) -> bool`: takes the same parameters as the
       `functionNode`-function, any value other than nil or false is interpreted
       as a match.
-    * lambda: `l._n` is the `\n`-joined text of the nth argnode.
-      Useful if string-manipulations have to be performed before the string is matched.
+    * `lambda`: `l._n` is the `\n`-joined text of the nth argnode.  
+      Useful if string-manipulations have to be performed before the string is matched.  
+	  Should end with `match`, but any other truthy result will be interpreted
+	  as matching.
 
-  * `then` is inserted if the condition matches, `else` if it doesn't. They can
-  	both be either text, lambda or function (with the same parameters as
-  	specified above).
-  If `then` is not given, the `then`-value depends on what was specified as the
-  `condition`:
-    * pattern: Simply the return value from the `match`, e.g. the entire match,
-    or, if there were capture groups, the first capture group.
-    * function: the return value of the function if it is either a string, or a
-    table (if there is no `then`, the function cannot return a table containing
-    something other than strings).
-    * lambda: Simply the first value returned by the lambda.
+  * `then` is inserted if the condition matches,
+  * `else` if it does not.  
 
-  Examples:
-  * `match(n, "^ABC$", "A")` inserts "A" if the node with jump-index `n` matches
-  	"ABC" exactly, nothing otherwise.
-  * `match(n, lambda._1:match(lambda._1:reverse()), "PALINDROME")` inserts
-    "PALINDROME" if the node with jump-index `n`th palindrome.
+Both `then` and `else` can be either text, lambda or function (with the same parameters as
+specified above).  
+`then`'s default-value depends on the `condition`:
+  * `pattern`: Simply the return value from the `match`, e.g. the entire match,
+  or, if there were capture groups, the first capture group.
+  * `function`: the return value of the function if it is either a string, or a
+  table (if there is no `then`, the function cannot return a table containing
+  something other than strings).
+  * `lambda`: Simply the first value returned by the lambda.
 
-    ```lua
-    s("trig", {
-    	i(1), t":",
-    	i(2), t"::",
-    	m({1, 2}, l._1:match("^"..l._2.."$"), l._1:gsub("a", "e"))
-    })
-    ```
-	This inserts the text of the node with jump-index 1, with all occurences of
-	`a` replaced with `e` if the second insertNode matches the first exactly.
+Examples:
+* `match(n, "^ABC$", "A")` .
+* `match(n, lambda._1:match(lambda._1:reverse()), "PALINDROME")` 
 
-- `rep`: repeats the node with the passed index.
-  For example `rep(1)` to repeat the content of the node at jump-index 1.
+  ```lua
+  s("trig", {
+  	i(1), t":",
+  	i(2), t"::",
+  	m({1, 2}, l._1:match("^"..l._2.."$"), l._1:gsub("a", "e"))
+  })
+  ```
 
-- `partial`: directly inserts the output of a function.  
-  Useful for e.g. `partial(os.date, "%Y")` (all arguments passed after the
-  function are passed to it).
 
-- `nonempty`: inserts text if the node at the given jump-index doesn't contain
-  any text.  
-  `nonempty(n, "not empty!", "empty!")` inserts "empty!" if the node
-  at jump-index n is empty, "not empty!" if it isn't.
+* ```lua
+    s("extras1", {
+      i(1), t { "", "" }, m(1, "^ABC$", "A")
+    }),
+  ```
+  Inserts "A" if the node with jump-index `n` matches "ABC" exactly, nothing otherwise.
 
-- `dynamic_lambda`: Operates almost exactly like `lambda`, only that it can be
-  jumped to, and its' contents therefore easily overridden (this is basically a
-  dynamicNode generating a single insertNode).  
-  `dynamic_lambda(2, lambda._1..lambda._1, 1)` will first contain the content of
-  the node at jump-index 1 appended to itself, but the second jump (jump-index
-  is 2) will lead to it, making it easy to override the generated text. The text
-  will only be changed when an argnode updates it.
+  <!-- panvimdoc-ignore-start -->
+  
+  ![extras1](https://user-images.githubusercontent.com/25300418/184359431-50f90599-3db0-4df0-a3a9-27013e663649.gif)
+  
+  <!-- panvimdoc-ignore-end -->
 
-```lua
-ls.add_snippets("all", {
-  s("extras1", {
-    i(1), t { "", "" }, m(1, "^ABC$", "A")
-  }),
+* ```lua
   s("extras2", {
     i(1, "INPUT"), t { "", "" }, m(1, l._1:match(l._1:reverse()), "PALINDROME")
   }),
+  ```
+  Inserts `"PALINDROME"` if i(1) contains a palindrome.
+
+  <!-- panvimdoc-ignore-start -->
+
+  ![extras2](https://user-images.githubusercontent.com/25300418/184359435-21e4de9f-c56b-4ee1-bff4-331b68e1c537.gif)
+
+  <!-- panvimdoc-ignore-end -->
+* ```lua
   s("extras3", {
     i(1), t { "", "" }, i(2), t { "", "" },
     m({ 1, 2 }, l._1:match("^" .. l._2 .. "$"), l._1:gsub("a", "e"))
   }),
-  s("extras4", { i(1), t { "", "" }, extras.rep(1) }),
-  s("extras5", { extras.partial(os.date, "%Y") }),
-  s("extras6", { i(1, ""), t { "", "" }, extras.nonempty(1, "not empty!", "empty!") }),
-  s("extras7", { i(1), t { "", "" }, extras.dynamic_lambda(2, l._1 .. l._1, 1) }),
-})
+  ```
+  This inserts the text of the node with jump-index 1, with all occurences of
+  `a` replaced with `e`, if the second insertNode matches the first exactly.
+
+  <!-- panvimdoc-ignore-start -->
+
+  ![extras3](https://user-images.githubusercontent.com/25300418/184359436-515ca1cc-207f-400d-98ba-39fa166e22e4.gif)
+
+  <!-- panvimdoc-ignore-end -->
+
+## Repeat
+
+Inserts the text of the passed node.
+
+`rep(node_reference)`
+- `node_reference`, a single [`node-reference`](#node_reference).
+
+```lua
+s("extras4", { i(1), t { "", "" }, extras.rep(1) }),
 ```
 
 <!-- panvimdoc-ignore-start -->
 
-extras1: ![extras1](https://user-images.githubusercontent.com/25300418/184359431-50f90599-3db0-4df0-a3a9-27013e663649.gif)
+![extras4](https://user-images.githubusercontent.com/25300418/184359193-6525d60d-8fd8-4fbd-9d3f-e3e7d5a0259f.gif)
 
-extras2: ![extras2](https://user-images.githubusercontent.com/25300418/184359435-21e4de9f-c56b-4ee1-bff4-331b68e1c537.gif)
+<!-- panvimdoc-ignore-end -->
 
-extras3: ![extras3](https://user-images.githubusercontent.com/25300418/184359436-515ca1cc-207f-400d-98ba-39fa166e22e4.gif)
+## Partial
 
-extras4: ![extras4](https://user-images.githubusercontent.com/25300418/184359193-6525d60d-8fd8-4fbd-9d3f-e3e7d5a0259f.gif)
+Evaluates a function on expand and inserts its' value.
 
-extras5: ![extras5](https://user-images.githubusercontent.com/25300418/184359206-6c25fc3b-69e1-4529-9ebf-cb92148f3597.gif)
+`partial(fn, params...)`
+- `fn`: any function
+- `params`: varargs, any, will be passed to `fn`.
 
-extras6: ![extras6](https://user-images.githubusercontent.com/25300418/184359213-79a71d1e-079c-454d-a092-c231ac5a98f9.gif)
+For example `partial(os.date, "%Y")` inserts the current year on expansion.
 
-extras7: ![extras7](https://user-images.githubusercontent.com/25300418/184359221-1f090895-bc59-44b0-a984-703bf8d278a3.gif)
+
+```lua
+s("extras5", { extras.partial(os.date, "%Y") }),
+```
+
+<!-- panvimdoc-ignore-start -->
+
+![extras5](https://user-images.githubusercontent.com/25300418/184359206-6c25fc3b-69e1-4529-9ebf-cb92148f3597.gif)
+
+<!-- panvimdoc-ignore-end -->
+
+## Nonempty
+Inserts text if the referenced node doesn't contain any text.  
+`nonempty(node_reference, not_empty, empty)`
+- `node_reference`, a single [node-reference](#node_reference).  
+- `not_empty`, `string`: inserted if the node is not empty.
+- `empty`, `string`: inserted if the node is empty.
+
+```lua
+s("extras6", { i(1, ""), t { "", "" }, extras.nonempty(1, "not empty!", "empty!") }),
+```
+
+<!-- panvimdoc-ignore-start -->
+
+![extras6](https://user-images.githubusercontent.com/25300418/184359213-79a71d1e-079c-454d-a092-c231ac5a98f9.gif)
+
+<!-- panvimdoc-ignore-end -->
+
+## Dynamic Lambda
+
+Pretty much the same as lambda, it just inserts the resulting text as an
+insertNode, and, as such, it can be quickly overridden.
+
+`dynamic_lambda(jump_indx, lambda, node_references)`
+- `jump_indx`, as usual, the jump-indx.
+
+The remaining arguments carry over from lambda.
+
+```lua
+s("extras7", { i(1), t { "", "" }, extras.dynamic_lambda(2, l._1 .. l._1, 1) }),
+```
+
+<!-- panvimdoc-ignore-start -->
+
+![extras7](https://user-images.githubusercontent.com/25300418/184359221-1f090895-bc59-44b0-a984-703bf8d278a3.gif)
 
 <!-- panvimdoc-ignore-end -->
 
