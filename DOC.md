@@ -784,9 +784,8 @@ functions.
 
 # RESTORENODE
 
-This node can store and restore a snippetNode that was modified (changed
-choices, inserted text) by the user. Its usage is best demonstrated by an
-example:
+This node can store and restore a snippetNode as-is. This includes changed
+choices and changed text. Its' usage is best demonstrated by an example:
 
 ```lua
 s("paren_change", {
@@ -797,7 +796,8 @@ s("paren_change", {
 	}),
 }, {
 	stored = {
-		user_text = i(1, "default_text")
+		-- key passed to restoreNodes.
+		["user_text"] = i(1, "default_text")
 	}
 })
 ```
@@ -810,15 +810,16 @@ s("paren_change", {
 
 Here the text entered into `user_text` is preserved upon changing choice.
 
-The constructor for the restoreNode, `r`, takes (at most) three parameters:
+`r(jump_index, key, nodes, node_opts)`:
+
 - [`jump_index`](#jump-index), when to jump to this node.
-- `key`, the key that identifies which `restoreNode`s should share their
-  content.
-- `nodes`, the contents of the `restoreNode`. Can either be a single node, or
+- `key`, `number`: `restoreNode`s with the same key share their content.
+- `nodes`, `node[]|node`: the content of the `restoreNode`.  
+  Can either be a single node, or
   a table of nodes (both of which will be wrapped inside a `snippetNode`,
-  except if the single node already is a `snippetNode`).
-  The content of a given key may be defined multiple times, but if the
-  contents differ, it's undefined which will actually be used.
+  except if the single node already is a `snippetNode`).  
+  The content for a given key may be defined multiple times, but if the
+  contents differ, it's undefined which will actually be used.  
   If a keys content is defined in a `dynamicNode`, it will not be used for
   `restoreNodes` outside that `dynamicNode`. A way around this limitation is
   defining the content in the `restoreNode` outside the `dynamicNode`.
@@ -832,7 +833,7 @@ An important-to-know limitation of `restoreNode` is that, for a given key, only
 one may be visible at a time. See
 [this issue](https://github.com/L3MON4D3/LuaSnip/issues/234) for details.
 
-The `restoreNode` is also useful for storing user-input across updates of a
+The `restoreNode` is especially useful for storing input across updates of a
 `dynamicNode`. Consider this:
 
 ```lua
@@ -879,10 +880,12 @@ that really bothers you feel free to open an issue.
 
 # ABSOLUTE_INDEXER
 
-The `absolute_indexer` can be used to pass text of nodes to a function/dynamicNode
-that it doesn't share a parent with.
-Normally, accessing the outer `i(1)` isn't possible from inside e.g. a
-snippetNode (nested inside a choiceNode to make this example more practical):
+A more capable way of [referencing nodes](#node_reference)!  
+Using only [`jump indices`](#jump-index), accessing an outer `i(1)` isn't possible
+from inside e.g. a snippetNode, since only nodes with the same parent can be
+referenced.  
+The `absolute_indexer` can be used to reference nodes based on their absolute
+position in the snippet, which lifts this restriction.  
 
 ```lua
 s("trig", {
