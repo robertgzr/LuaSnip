@@ -813,16 +813,17 @@ Here the text entered into `user_text` is preserved upon changing choice.
 `r(jump_index, key, nodes, node_opts)`:
 
 - [`jump_index`](#jump-index), when to jump to this node.
-- `key`, `number`: `restoreNode`s with the same key share their content.
+- `key`, `string`: `restoreNode`s with the same key share their content.
 - `nodes`, `node[]|node`: the content of the `restoreNode`.  
-  Can either be a single node, or
-  a table of nodes (both of which will be wrapped inside a `snippetNode`,
-  except if the single node already is a `snippetNode`).  
+  Can either be a single node, or a table of nodes (both of which will be
+  wrapped inside a `snippetNode`, except if the single node already is a
+  `snippetNode`).  
   The content for a given key may be defined multiple times, but if the
   contents differ, it's undefined which will actually be used.  
-  If a keys content is defined in a `dynamicNode`, it will not be used for
-  `restoreNodes` outside that `dynamicNode`. A way around this limitation is
-  defining the content in the `restoreNode` outside the `dynamicNode`.
+  If a key's content is defined in a `dynamicNode`, it will not be initially
+  used for `restoreNodes` outside that `dynamicNode`. A way around this
+  limitation is defining the content in the `restoreNode` outside the
+  `dynamicNode`.
 
 The content for a key may also be defined in the `opts`-parameter of the
 snippet-constructor, as seen in the example above. The `stored`-table accepts
